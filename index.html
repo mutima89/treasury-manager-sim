@@ -743,7 +743,7 @@ function tick() {
       sub.cash -= sweep;
       S.centralCash += sweep;
       S.totalSweeps++;
-      log(`Sweep: ${sub.flag} swept ${fmtCash(sweep, sub.currency)} to central pool (excess cash)', 'sweep');
+      log('Sweep: ' + sub.flag + ' swept ' + fmtCash(sweep, sub.currency) + ' to central pool (excess cash)', 'sweep');
     } else if (sub.cash < lower && sub.cash < sub.minCash) {
       const deficit = sub.targetCash - sub.cash;
       const available = Math.max(0, S.centralCash);
@@ -752,7 +752,7 @@ function tick() {
         sub.cash += toSweep;
         S.centralCash -= toSweep;
         S.totalSweeps++;
-        log(`Sweep: ${sub.flag} received ${fmtCash(toSweep, sub.currency)} from central pool (deficit cover)', 'sweep');
+        log('Sweep: ' + sub.flag + ' received ' + fmtCash(toSweep, sub.currency) + ' from central pool (deficit cover)', 'sweep');
       }
     }
   }
