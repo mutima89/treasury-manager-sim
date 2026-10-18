@@ -422,7 +422,7 @@ table tr:hover td { background: var(--bg-hover); }
         <div class="stat-card">
           <div class="stat-label">Hedge Cost</div>
           <div class="stat-value" id="statHedgeCost">$0</div>
-          <div class="stat-sub">forward points paid</div>
+          <div class="stat-sub">forward points (inside hedge P&amp;L)</div>
         </div>
       </div>
 
@@ -555,6 +555,9 @@ const FX_DISPLAY = { eur: v => v.toFixed(4), gbp: v => v.toFixed(4), jpy: v => (
 // ============================================================
 // STATE
 // ============================================================
+// Approximate local short-term interest rates used to price one-day forwards
+const LOCAL_RATES = { eur: 0.03, gbp: 0.045, jpy: 0.005, brl: 0.11, usd: 0 };
+
 const S = {
   running: false, paused: false,
   time: 0, day: 0,
@@ -585,7 +588,8 @@ const S = {
   pnlHedge: 0,     // settled hedge P&L
   pnlODFees: 0,    // overdraft fees paid
   pnlInterest: 0,  // interest earned on central pool
-  pnlHedgeCost: 0, // forward points cost
+  pnlHedgeCost: 0, // forward points given up (already inside hedge settlement P&L)
+  cumFlowsUSD: 0,  // operating cash flows converted at the spot rate of each day (for reconciliation)
   totalODs: 0,
   totalSweeps: 0,
   totalHedgeContracts: 0,
@@ -633,7 +637,7 @@ function initSubs() {
   S.centralCash = 0;
   S.hedges = [];
   S.cashHistory = [];
-  S.pnlFX = 0; S.pnlHedge = 0; S.pnlODFees = 0; S.pnlInterest = 0; S.pnlHedgeCost = 0;
+  S.pnlFX = 0; S.pnlHedge = 0; S.pnlODFees = 0; S.pnlInterest = 0; S.pnlHedgeCost = 0; S.cumFlowsUSD = 0;
   S.totalODs = 0; S.totalSweeps = 0; S.totalHedgeContracts = 0;
 }
 
@@ -646,12 +650,7 @@ function tick() {
   S.day++;
   S.time += S.dayDuration;
 
-  // 1. Save previous rates
-  for (const id of Object.keys(S.rates)) {
-    S.prevRates[id] = S.rates[id];
-  }
-
-  // 2. Move FX rates (GBM) — skip USD
+  // 1. Move FX rates (GBM) — skip USD. Rates are USD per one unit of local currency.
   for (const sub of S.subs) {
     if (sub.id === 'usd') continue;
     const vol = sub.vol * (S.globalVol / 0.08); // scale by global vol setting
@@ -659,33 +658,28 @@ function tick() {
     const dt = S.dayDuration;
     const ret = -0.5 * vol * vol * dt + vol * Math.sqrt(dt) * z;
     S.rates[sub.id] *= Math.exp(ret);
-    // Update subsidiary rate reference
     sub.rate = S.rates[sub.id];
   }
 
-  // 3. Generate cash flows for each sub
+  // 2. FX translation P&L on the balances held while rates moved (since the last tick, so scenario
+  //    shocks applied between ticks are captured too)
+  let fxPnlToday = 0;
   for (const sub of S.subs) {
-    const flow = sub.flowMean + sub.flowStd * gaussianRandom() * 0.5;
-    // Daily flow with some weekly seasonality
-    const dayOfWeek = S.day % 5;
-    const seasonal = dayOfWeek === 4 ? 1.5 : 1.0; // Friday has higher flows
-    const finalFlow = Math.round(flow * seasonal);
-    sub.cash += finalFlow;
+    if (sub.id === 'usd') continue;
+    fxPnlToday += sub.cash * (S.rates[sub.id] - S.prevRates[sub.id]);
+    S.prevRates[sub.id] = S.rates[sub.id];
   }
+  S.pnlFX += fxPnlToday;
 
-  // 4. Settle matured hedges (all hedges mature after 1 period)
+  // 3. Settle matured forwards. qty = local units sold forward; settlement in USD goes to the central pool.
   const settled = [];
   const remaining = [];
   let hedgePnlSettled = 0;
   for (const h of S.hedges) {
-    if (h.maturity <= S.time) {
-      // Settle: pays qty * (lockedRate - spotRate) in USD
+    if (h.maturity <= S.time + 1e-12) {
       const spotRate = S.rates[h.currency];
       const settlePnl = h.qty * (h.lockedRate - spotRate);
       hedgePnlSettled += settlePnl;
-      // The forward points cost = qty * |lockedRate - initRate| approximately
-      const forwardCost = Math.abs(h.qty * (h.lockedRate - S.initRates[h.currency])) * 0.05;
-      S.pnlHedgeCost += forwardCost;
       settled.push({ ...h, settlePnl });
     } else {
       remaining.push(h);
@@ -693,103 +687,98 @@ function tick() {
   }
   S.hedges = remaining;
   S.pnlHedge += hedgePnlSettled;
+  S.centralCash += hedgePnlSettled;
 
-  // Log hedge settlements
   for (const h of settled) {
     const label = FX_LABELS[h.currency] || h.currency.toUpperCase();
     const dir = h.qty >= 0 ? 'sold' : 'bought';
-    log(`Hedge settled: ${dir} ${Math.abs(h.qty).toFixed(0)} ${label} @ ${h.lockedRate.toFixed(4)} vs spot ${S.rates[h.currency].toFixed(4)} | P&L: ${showPnl(h.settlePnl)}`, 'hedge');
+    log(`Hedge settled: ${dir} ${Math.abs(h.qty).toFixed(0)} ${h.currency.toUpperCase()} fwd @ ${h.lockedRate.toFixed(4)} vs spot ${S.rates[h.currency].toFixed(4)} (${label}) | P&L: ${showPnl(h.settlePnl)}`, 'hedge');
   }
 
-  // 5. Create new hedges based on hedge ratios
+  // 4. Generate cash flows for each sub (local currency)
   for (const sub of S.subs) {
-    if (sub.id === 'usd') continue;
-    const ratio = S.hedgeRatios[sub.id];
-    if (ratio <= 0) continue;
-
-    const expectedFlow = sub.flowMean * S.dayDuration * 252; // annualize for notional
-    const absFlow = Math.abs(expectedFlow);
-    const hedgeQty = -absFlow * ratio * Math.sign(expectedFlow);
-
-    if (Math.abs(hedgeQty) > 0.01) {
-      // Forward rate ≈ spot * (1 + r_USD * T) / (1 + r_local * T)
-      // Simplified: forwardRate = spot * exp((r_usd - r_local) * T)
-      const rDiff = S.interestRate - 0.02; // assume local rate is 2% lower on average
-      const forwardRate = S.rates[sub.id] * Math.exp(rDiff * S.dayDuration);
-
-      const hedge = {
-        id: ++S.hedgeIdCounter,
-        currency: sub.id,
-        qty: hedgeQty,
-        lockedRate: forwardRate,
-        spotAtCreation: S.rates[sub.id],
-        maturity: S.time + S.dayDuration,
-        created: S.time,
-      };
-      S.hedges.push(hedge);
-      S.totalHedgeContracts++;
-    }
+    const flow = sub.flowMean + sub.flowStd * gaussianRandom() * 0.5;
+    const dayOfWeek = S.day % 5;
+    const seasonal = dayOfWeek === 4 ? 1.5 : 1.0; // Friday has higher flows
+    const finalFlow = Math.round(flow * seasonal);
+    sub.cash += finalFlow;
+    S.cumFlowsUSD += finalFlow * S.rates[sub.id];
   }
 
-  // 6. Cash sweeps
+  // 5. Cash sweeps between subsidiaries (local currency) and the central pool (USD), converted at spot
   for (const sub of S.subs) {
+    const rate = S.rates[sub.id];
     const threshold = sub.targetCash * S.sweepThreshold;
     const upper = sub.targetCash + threshold;
     const lower = sub.targetCash - threshold;
 
     if (sub.cash > upper) {
       const excess = sub.cash - sub.targetCash;
-      const sweep = Math.round(excess * 0.8); // sweep 80% of excess
-      sub.cash -= sweep;
-      S.centralCash += sweep;
+      const sweepLocal = Math.round(excess * 0.8); // sweep 80% of excess
+      const sweepUSD = sweepLocal * rate;
+      sub.cash -= sweepLocal;
+      S.centralCash += sweepUSD;
       S.totalSweeps++;
-      log('Sweep: ' + sub.flag + ' swept ' + fmtCash(sweep, sub.currency) + ' to central pool (excess cash)', 'sweep');
+      log('Sweep: ' + sub.flag + ' swept ' + fmtCash(sweepLocal, sub.currency) + ' (' + fmtUSD(sweepUSD) + ') to central pool (excess cash)', 'sweep');
     } else if (sub.cash < lower && sub.cash < sub.minCash) {
-      const deficit = sub.targetCash - sub.cash;
-      const available = Math.max(0, S.centralCash);
-      const toSweep = Math.min(deficit, available);
-      if (toSweep > 100) {
-        sub.cash += toSweep;
-        S.centralCash -= toSweep;
+      const deficitUSD = (sub.targetCash - sub.cash) * rate;
+      const availableUSD = Math.max(0, S.centralCash);
+      const toSweepUSD = Math.min(deficitUSD, availableUSD);
+      if (toSweepUSD > 100) {
+        const toSweepLocal = toSweepUSD / rate;
+        sub.cash += toSweepLocal;
+        S.centralCash -= toSweepUSD;
         S.totalSweeps++;
-        log('Sweep: ' + sub.flag + ' received ' + fmtCash(toSweep, sub.currency) + ' from central pool (deficit cover)', 'sweep');
+        log('Sweep: ' + sub.flag + ' received ' + fmtCash(toSweepLocal, sub.currency) + ' (' + fmtUSD(toSweepUSD) + ') from central pool (deficit cover)', 'sweep');
       }
     }
   }
 
-  // 7. Overdraft check
+  // 6. Overdraft check: fee accrues in local currency; P&L is tracked in USD
   for (const sub of S.subs) {
     if (sub.cash < 0) {
       const dailyODRate = S.overdraftAPR / 252;
-      const fee = Math.round(Math.abs(sub.cash) * dailyODRate);
-      S.pnlODFees += fee;
+      const feeLocal = Math.abs(sub.cash) * dailyODRate;
+      const feeUSD = feeLocal * S.rates[sub.id];
+      S.pnlODFees += feeUSD;
       S.totalODs++;
-      sub.cash -= fee; // fee charged
-      log(`OVERDRAFT: ${sub.flag} ${sub.name} is negative! Fee: $${fee.toFixed(0)} | Balance: ${fmtCash(sub.cash, sub.currency)}`, 'alert');
-      logEdu(`Overdraft cost: At ${(S.overdraftAPR*100).toFixed(0)}% APR, a negative balance of ${fmtCash(sub.cash, sub.currency)} costs $${fee.toFixed(0)}/day. Cash sweeps prevent this.`, 'Overdraft');
+      sub.cash -= feeLocal; // fee charged
+      log(`OVERDRAFT: ${sub.flag} ${sub.name} is negative! Fee: ${fmtCash(feeLocal, sub.currency)} (${fmtUSD(feeUSD)}) | Balance: ${fmtCash(sub.cash, sub.currency)}`, 'alert');
+      logEdu(`Overdraft cost: At ${(S.overdraftAPR*100).toFixed(0)}% APR, a negative balance of ${fmtCash(sub.cash, sub.currency)} costs about ${fmtUSD(feeUSD)}/day. Cash sweeps prevent this.`, 'Overdraft');
     }
   }
 
-  // 8. Interest on central pool
+  // 7. Interest on central pool (USD)
   const dailyRate = S.interestRate / 252;
   const interestEarned = S.centralCash * dailyRate;
   S.pnlInterest += interestEarned;
   S.centralCash += interestEarned;
 
-  // 9. FX translation P&L: change in USD value of cash due to rate moves only
-  // (not due to cash flow changes)
-  let fxPnlToday = 0;
+  // 8. New one-day forwards hedging each foreign balance at its hedge ratio.
+  //    Forward (USD per local) = spot * exp((r_USD - r_local) * T); the carry is embedded in settlement.
   for (const sub of S.subs) {
     if (sub.id === 'usd') continue;
-    const prev = S.prevRates[sub.id];
-    const curr = S.rates[sub.id];
-    // Use end-of-period cash to compute translation
-    const rateChange = curr - prev;
-    fxPnlToday += sub.cash * rateChange;
+    const ratio = S.hedgeRatios[sub.id];
+    if (ratio <= 0) continue;
+    const hedgeQty = sub.cash * ratio; // local units sold forward (negative = bought, if overdrawn)
+    if (Math.abs(hedgeQty) > 0.01) {
+      const spot = S.rates[sub.id];
+      const forwardRate = spot * Math.exp((S.interestRate - LOCAL_RATES[sub.id]) * S.dayDuration);
+      S.pnlHedgeCost += hedgeQty * (spot - forwardRate); // forward points given up (negative = earned)
+      S.hedges.push({
+        id: ++S.hedgeIdCounter,
+        currency: sub.id,
+        qty: hedgeQty,
+        lockedRate: forwardRate,
+        spotAtCreation: spot,
+        maturity: S.time + S.dayDuration,
+        created: S.time,
+      });
+      S.totalHedgeContracts++;
+    }
   }
-  S.pnlFX += fxPnlToday;
 
-  // 10. Record history
+  // 9. Record history
   let totalCashUSD = 0;
   for (const sub of S.subs) {
     totalCashUSD += sub.cash * S.rates[sub.id];
@@ -886,7 +875,9 @@ function scenarioRiskOff() {
 
 function scenarioLiquidity() {
   for (const sub of S.subs) {
-    sub.cash -= sub.targetCash * (0.3 + Math.random() * 0.2);
+    const hit = sub.targetCash * (0.3 + Math.random() * 0.2);
+    sub.cash -= hit;
+    S.cumFlowsUSD -= hit * S.rates[sub.id];
   }
   logEdu('LIQUIDITY CRUNCH: Major customer delayed payments across all subsidiaries. Cash balances dropped 30-50%. Sweep thresholds will trigger.', 'Scenario');
   if (!S.running) log('Start the simulation first.', 'system');
@@ -904,7 +895,7 @@ const HELP = {
   fxpnl: { title: 'FX Translation P&L', body: `<p>The gain or loss from exchange rate movements on existing cash balances. This is <span class="hl">unrealized</span> until cash is actually converted.</p><p>FX P&L = cash &times; (rate &minus; previous rate)</p><p>Hedging with forwards can offset this exposure.</p>` },
   hedge: { title: 'Hedge Settlement P&L', body: `<p>The realized P&L from maturing forward contracts.</p><p class="fm">P&L = Qty &times; (Locked Rate &minus; Spot Rate)</p><p>A well-structured hedge program offsets FX losses with hedge gains (and vice versa).</p>` },
   overdraft: { title: 'Overdrafts', body: `<p>When a subsidiary's cash balance goes <span class="r">negative</span>, an overdraft fee is charged at the configured APR.</p><p>Cash sweeps from the central pool prevent this. Set appropriate sweep thresholds.</p>` },
-  coverage: { title: 'Hedge Coverage Ratio', body: `<p>The weighted average percentage of FX exposure protected by forward contracts. Higher coverage = less FX risk but more hedge cost.</p><p>A 60% coverage means 60% of expected cash flows are hedged.</p>` },
+  coverage: { title: 'Hedge Coverage Ratio', body: `<p>The weighted average percentage of FX exposure protected by forward contracts. Higher coverage = less FX risk but more hedge cost.</p><p>A 60% coverage means forwards cover 60% of the USD value of foreign cash balances.</p>` },
 };
 
 function showHelp(key) {
@@ -958,7 +949,7 @@ function updateUI() {
   let totalExposure = 0, totalHedged = 0;
   for (const sub of S.subs) {
     if (sub.id === 'usd') continue;
-    const exposure = Math.abs(sub.flowMean * 252 * S.rates[sub.id]);
+    const exposure = Math.abs(sub.cash * S.rates[sub.id]);
     totalExposure += exposure;
     totalHedged += exposure * S.hedgeRatios[sub.id];
   }
@@ -1340,7 +1331,7 @@ function resetSim() {
   S.centralCash = 0;
   S.hedges = [];
   S.hedgeIdCounter = 0;
-  S.pnlFX = 0; S.pnlHedge = 0; S.pnlODFees = 0; S.pnlInterest = 0; S.pnlHedgeCost = 0;
+  S.pnlFX = 0; S.pnlHedge = 0; S.pnlODFees = 0; S.pnlInterest = 0; S.pnlHedgeCost = 0; S.cumFlowsUSD = 0;
   S.totalODs = 0; S.totalSweeps = 0; S.totalHedgeContracts = 0;
   S.cashHistory = [];
   S.rateHistory = {};
