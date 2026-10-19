@@ -1,291 +1,129 @@
 <div align="center">
-  <br>
-  <h1>&#127974; Global Treasury Manager</h1>
-  <p><strong>FX Hedging &amp; Cash Sweep Simulator · Educational Edition</strong></p>
-  <p>
-    <em>Manage 5 multinational subsidiaries across 4 currencies.
-    <br>Hedge FX exposure. Sweep cash. Minimize losses.</em>
-  </p>
-  <br>
-  <p>
-    <a href="#-features"><img src="https://img.shields.io/badge/Features-📋-06b6d4?style=for-the-badge" alt="Features"></a>
-    <a href="#-educational-value"><img src="https://img.shields.io/badge/Education-📖-14b8a6?style=for-the-badge" alt="Education"></a>
-    <a href="#-quick-start"><img src="https://img.shields.io/badge/Quick_Start-▶-0891b2?style=for-the-badge" alt="Quick Start"></a>
-    <a href="#-theory"><img src="https://img.shields.io/badge/Theory-🎓-06b6d4?style=for-the-badge" alt="Theory"></a>
-  </p>
-  <br>
-  <p>
-    <img src="https://img.shields.io/badge/Chart.js-4.x-FF6384?style=flat-square&logo=chartdotjs&logoColor=white" alt="Chart.js">
-    <img src="https://img.shields.io/badge/vanilla-JS-F7DF1E?style=flat-square&logo=javascript&logoColor=black" alt="Vanilla JS">
-    <img src="https://img.shields.io/badge/dependencies-Chart.js_only-22c55e?style=flat-square" alt="Minimal Dependencies">
-    <img src="https://img.shields.io/badge/license-MIT-22c55e?style=flat-square" alt="MIT License">
-    <img src="https://img.shields.io/badge/status-active-22c55e?style=flat-square" alt="Status Active">
-  </p>
-  <br>
+
+# Global Treasury Manager
+
+**An FX-hedging and cash-sweep simulator for corporate treasury, in one HTML file.**
+
+Run the treasury of a multinational with five subsidiaries and four foreign currencies. Set hedge ratios, sweep cash into a USD pool, survive currency shocks, and watch the P&L break down into translation, hedging, interest and overdraft costs.
+
+[![Single file](https://img.shields.io/badge/app-single%20HTML%20file-0891b2)](index.html)
+[![Chart.js](https://img.shields.io/badge/Chart.js-4-FF6384?logo=chartdotjs&logoColor=white)](https://www.chartjs.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![Last commit](https://img.shields.io/github/last-commit/mutima89/treasury-manager-sim)](https://github.com/mutima89/treasury-manager-sim/commits)
+
+[Overview](#overview) · [Screenshots](#screenshots) · [Quick start](#quick-start) · [The model](#the-model) · [Scenarios](#scenarios) · [Learning path](#suggested-learning-path)
+
+![Global Treasury Manager after a 46-day run with an emerging-market shock](docs/screenshots/dashboard.png)
+
 </div>
 
 ---
 
-## &#128203; Overview
+## Overview
 
-**Global Treasury Manager** is an interactive, real-time browser-based simulation that places you in the seat of a **corporate treasurer** at a multinational company. You manage FX exposure and liquidity across 5 subsidiaries in 4 currencies, using forward contracts and cash sweeps to protect the company's P&amp;L.
+| | |
+|---|---|
+| **Subsidiaries** | US headquarters plus EU, UK, Japan and Brazil operations, each holding cash in its own currency with its own daily cash flows |
+| **FX rates** | EUR, GBP, JPY and BRL follow geometric Brownian motion at their own volatilities (6–14%), scaled by a global volatility control |
+| **Hedging** | Per-currency hedge ratios (0–100%) roll one-day forwards on each foreign cash balance, priced from interest-rate differentials |
+| **Cash concentration** | Excess cash above a target band is swept into a USD central pool at spot; shortfalls are funded back from it |
+| **Costs and income** | Interest accrues on the pool; negative subsidiary balances pay overdraft interest at a configurable rate |
+| **P&L attribution** | A waterfall splits total P&L into FX translation, hedge settlement, interest income and overdraft fees |
+| **Teaching layer** | Theory panel, click-to-explain metrics, and a plain-English activity log for every sweep, settlement and overdraft |
 
-> *"Every day, currencies move. Every day, cash flows. Your job: make sure neither one sinks the company."*
+No build step, no backend, no account. Everything runs in the browser.
 
-Built as a **single HTML file** — open in any browser and press Start.
+## Screenshots
 
-### Who Is This For?
+| Theory panel | Concept help |
+|:---:|:---:|
+| ![Theory panel](docs/screenshots/theory-panel.png) | ![Hedge settlement explainer](docs/screenshots/concept-help.png) |
 
-| Audience | Use Case |
-|----------|----------|
-| **Corporate Treasury Professionals** | Practice FX hedging strategy and cash concentration techniques |
-| **Finance Students** | See FX risk management in action with live P&amp;L attribution |
-| **CFO / FP&A Aspirants** | Understand how currency volatility affects multinational P&amp;L |
-| **Business School Educators** | Demonstrate hedging, cash sweeps, and liquidity management |
-| **Self-Taught Finance Enthusiasts** | Explore corporate treasury through an interactive simulation |
+<details>
+<summary>Full page</summary>
 
----
+![Full simulator page](docs/screenshots/full-page.png)
 
-## &#10024; Features
+</details>
 
-### Core Simulation
+## Quick start
 
-| Feature | Description |
-|---------|-------------|
-| **5 Multinational Subsidiaries** | US (HQ), EU, UK, Japan, Brazil — each with local currency, cash balance, and daily cash flows |
-| **4 Currency Pairs** | EUR/USD, GBP/USD, USD/JPY, USD/BRL — each with configurable volatility |
-| **GBM FX Rate Process** | Exchange rates follow Geometric Brownian Motion with realistic volatility |
-| **Forward Contracts** | Each day, one-day forwards sell the hedged share of every foreign cash balance at the forward rate |
-| **Automatic Cash Sweeps** | Excess cash is swept to a USD central pool at the spot rate; deficits are covered from it |
-| **Daily Cash Flows** | Each subsidiary generates random daily net cash flows with seasonal patterns |
-| **Overdraft Detection** | Negative cash balances trigger expensive overdraft fees |
+1. Download or clone the repository.
+2. Open `index.html` in a modern browser (Chrome, Edge, Firefox or Safari).
+3. Press **Start**.
 
-### Educational Features
+The page loads Chart.js from a CDN, so it needs an internet connection the first time.
 
-| Feature | Description |
-|---------|-------------|
-| **P&L Attribution Waterfall** | Visual breakdown: FX Translation + Hedge Settlement + Interest &minus; Overdraft Fees |
-| **Per-Currency Hedge Ratios** | Individual sliders for each currency (0–100%) — set different strategies per region |
-| **Educational Theory Panel** | Collapsible sidebar with treasury concepts, hedging mechanics, and scenario guides |
-| **Color-Coded Log** | Every hedge settlement, sweep, and overdraft explained in plain English |
-| **4 Scenario Injectors** | EM Crisis, EUR Weakens, Global Risk-Off, Liquidity Crunch |
-| **Subsidiary Dashboard** | Each sub shown with flag, cash balance, USD equivalent, daily flow, status, hedge slider |
-| **Consolidated Chart** | Total USD cash + FX rate overlay for visual correlation analysis |
+### Controls
 
-### Interactive Controls
+| Control | Range | Effect |
+|---|---|---|
+| FX volatility | 2–25% | Scales every currency's volatility (8% = the base settings) |
+| Sweep threshold | 5–50% | Band around each subsidiary's target cash before a sweep triggers |
+| Interest rate | 1–12% | Annual USD rate earned by the central pool, also used in forward pricing |
+| Overdraft cost | 5–40% APR | Penalty rate on negative subsidiary balances |
+| Speed | 1×–5× | One simulated day every 600 ms at 1×, 120 ms at 5× |
+| Hedge ratio (per currency) | 0–100% | Share of that subsidiary's balance hedged with forwards |
 
-| Control | Range | Purpose |
-|---------|-------|---------|
-| **FX Volatility** | 2–25% | Global FX volatility multiplier |
-| **Sweep Threshold** | 5–50% | % above/below target cash that triggers a sweep |
-| **Interest Rate** | 1–12% | Annual interest rate on central pool balance |
-| **Speed** | 1×–5× | Simulation speed |
-| **Overdraft Cost** | 5–40% APR | Annual penalty rate for negative cash balances |
-| **Hedge Ratios** | 0–100% | Per-currency, set independently via sliders on subsidiary cards |
+## The model
 
----
+Each simulated day runs in a fixed order:
 
-## &#127937; Quick Start
+1. **Rates move.** Each foreign rate (stored as USD per unit of local currency) takes a GBM step.
+2. **Translation P&L** is booked on the balances held while rates moved: `cash × (new rate − old rate)`. Shocks applied between days are captured too.
+3. **Forwards settle.** Each matured forward pays `quantity × (locked rate − spot)` in USD into the central pool.
+4. **Operating cash flows** arrive in local currency.
+5. **Sweeps** move cash between subsidiaries and the USD pool, converted at spot.
+6. **Overdraft fees** accrue in local currency and are booked in USD.
+7. **Interest** accrues on the pool.
+8. **New one-day forwards** sell the hedged share of each foreign balance at `spot × e^((r_USD − r_local) × T)`, using approximate local rates of EUR 3%, GBP 4.5%, JPY 0.5% and BRL 11%.
 
-```bash
-# 1. Open the HTML file in any modern browser
-open index.html
-
-# 2. Review your 5 subsidiaries (shown as cards with flags)
-#    - Each has a cash balance, daily flow, and current FX rate
-
-# 3. Set hedge ratios for each currency using the sliders
-#    - EUR: 60%, GBP: 40%, JPY: 20%, BRL: 10%
-#    - Higher ratio = more protection, but more hedge cost
-
-# 4. Press "Start"
-#    FX rates move, cash flows arrive, hedges settle, sweeps execute
-
-# 5. Watch the P&L waterfall — learn where your gains/losses come from
-
-# 6. Use scenario buttons to test extreme conditions
-#    - EM Crisis: BRL drops 20%
-#    - EUR Weakens: EUR drops 8%
-#    - Risk-Off: All EM currencies sell off
-#    - Liquidity Crunch: All subsidiaries hit simultaneously
-```
-
-### System Requirements
-
-| Requirement | Detail |
-|-------------|--------|
-| **Browser** | Chrome, Firefox, Edge, Safari |
-| **Internet** | Once (for Chart.js CDN) |
-| **Dependencies** | Chart.js 4.x |
-| **Storage** | ~250 KB |
-| **OS** | Windows, macOS, Linux |
-
----
-
-## &#127974; The Five Subsidiaries
-
-| Sub | Currency | Flag | Initial Cash | Daily Flow | FX Vol | Key Risk |
-|-----|----------|------|-------------|------------|--------|----------|
-| **US HQ** | USD | 🇺🇸 | $2,000,000 | +$8,000 | — | None (base currency) |
-| **EU Ops** | EUR | 🇪🇺 | €800,000 | −€2,500 | 7% | Largest non-USD exposure |
-| **UK Sub** | GBP | 🇬🇧 | £500,000 | +£1,500 | 6% | Moderate exposure |
-| **Japan** | JPY | 🇯🇵 | ¥10,000,000 | −¥60,000 | 8% | Large notional, low per-unit vol |
-| **Brazil** | BRL | 🇧🇷 | R$500,000 | +R$3,000 | 14% | Highest volatility |
-
----
-
-## &#127891; Educational Value
-
-### What You Will Learn
-
-| Concept | How the Simulator Teaches It |
-|---------|------------------------------|
-| **FX Transaction Exposure** | Each subsidiary's cash flows in local currency — when converted to USD, the value fluctuates with FX rates |
-| **FX Translation Exposure** | Even without cash movement, the USD value of foreign cash balances changes daily with FX rates |
-| **Forward Hedging** | Setting a hedge ratio per currency creates forward contracts that lock in rates, offsetting FX P&L |
-| **The Hedge Ratio Tradeoff** | 0% = full exposure to FX (volatile P&L). 100% = no exposure but forward costs. The optimal ratio depends on your risk tolerance. |
-| **Cash Concentration** | Sweeping excess cash to a central pool earns interest and prevents overdrafts in other subsidiaries |
-| **Overdraft Cost** | Negative cash balances trigger daily penalties at configurable APR — motivates proactive cash management |
-| **P&L Attribution** | The waterfall chart decomposes total P&L into FX translation, hedge settlement, interest income, and overdraft fees |
-| **Correlation & Diversification** | Different currencies have different volatilities and correlations — a diversified hedge strategy matters |
-| **Scenario Testing** | Use EM Crisis, EUR Weakens, Risk-Off, and Liquidity Crunch to stress-test your treasury strategy |
-
-### Suggested Learning Path
-
-1. **Start with 50% hedge on all currencies.** Observe how the P&L waterfall behaves over 20–30 days.
-2. **Drop all hedges to 0%.** See the P&L volatility increase. Run the EM Crisis scenario — watch your Brazilian subsidiary's value collapse.
-3. **Set EUR hedge to 100%, others to 0%.** Run the EUR Weakens scenario. See how a perfect hedge on one currency protects it while others are exposed.
-4. **Experiment with sweep thresholds.** Set it high (50%), then low (5%). Observe how overdrafts change.
-5. **Hit the Liquidity Crunch scenario.** See how fast overdrafts accumulate when multiple subsidiaries hit cash shortfalls simultaneously.
-6. **Try a dynamic strategy.** Adjust hedge ratios periodically based on market conditions.
-
----
-
-## &#127891; Theory
-
-### FX Exposure Types
-
-| Exposure Type | Definition | In This Simulator |
-|---------------|-----------|-------------------|
-| **Transaction** | P&L impact of converting foreign cash flows at spot rates | Flows are converted at the day's spot rate when swept |
-| **Translation** | Change in USD value of foreign cash balances due to rate moves | Cash balance × (current rate − previous rate); this is what the forwards hedge |
-
-### How Forward Hedging Works
-
-A forward contract locks in an exchange rate today for a future cash flow:
-
-```
-Forward Rate ≈ Spot Rate × e^((r_USD − r_local) × T)
-
-Hedge P&L at Settlement = Qty × (Locked Rate − Spot Rate)
-```
-
-- If the spot rate moves **against** you (currency weakens), the forward pays you → offsets the FX loss
-- If the spot rate moves **in your favor** (currency strengthens), you pay the forward → caps the FX gain
-
-### How the model keeps its books
-
-- Rates are stored as USD per unit of local currency; every transfer between a subsidiary and the USD pool converts at spot.
-- Forward rate = spot × e^((r_USD − r_local) × T), with approximate local rates (EUR 3%, GBP 4.5%, JPY 0.5%, BRL 11%). The forward points are inside the hedge settlement; the **Hedge Cost** card shows them separately for information only.
-- Hedge settlements, interest and overdraft fees all flow through cash, so at every step: change in total USD cash = operating cash flows + Total Treasury P&L.
-
-### P&L Decomposition
-
-```
+```text
 Total Treasury P&L = FX Translation + Hedge Settlement + Interest Income − Overdraft Fees
 ```
 
-| Component | Sign | What It Represents |
-|-----------|------|-------------------|
-| **FX Translation** | ± | USD value change of foreign cash due to FX rate moves |
-| **Hedge Settlement** | ± | Net P&L from maturing forward contracts |
-| **Interest Income** | + | Interest earned on the central treasury pool |
-| **Overdraft Fees** | − | Penalties for negative subsidiary cash balances |
+Because every flow passes through cash, the books close exactly: the change in total USD cash equals operating cash flows plus total P&L. Forward points are already inside hedge settlement; the **Hedge Cost** card shows them separately for information.
 
-### The Hedge Ratio Spectrum
+In a 250-day test with a fixed seed, raising all hedge ratios from 0% to 100% cut the standard deviation of daily FX-plus-hedge P&L from about $800 to about $60.
 
-| 0% Hedge | 50% Hedge | 100% Hedge |
-|----------|-----------|------------|
-| Full FX exposure | Balanced protection | No FX exposure |
-| Highest P&L volatility | Moderate volatility | Zero FX P&L impact |
-| No hedge cost | Moderate hedge cost | Highest hedge cost |
-| Max upside/downside | Capped upside/downside | Predictable outcome |
+### Subsidiaries
 
----
+| Subsidiary | Currency | Opening cash | Mean daily flow | Volatility |
+|---|---|---|---|---|
+| US Headquarters | USD | $2,000,000 | +$8,000 | — |
+| EU Operations | EUR | €800,000 | −€2,500 | 7% |
+| UK Subsidiary | GBP | £500,000 | +£1,500 | 6% |
+| Japan Branch | JPY | ¥10,000,000 | −¥60,000 | 8% |
+| Brazil Office | BRL | R$500,000 | +R$3,000 | 14% |
 
-## &#127911; Scenarios
+## Scenarios
 
-| Scenario | Trigger | What Happens | Teaches |
-|----------|---------|-------------|---------|
-| **EM Crisis** | 🇧🇷 BRL −20% | Brazilian Real crashes. Unhedged BRL exposure takes a major hit. | Emerging market risk premium |
-| **EUR Weakens** | 🇪🇺 EUR −8% | Euro weakens sharply against USD. Largest non-USD sub is impacted. | Concentration risk |
-| **Risk-Off** | 🌐 All EM −15% | Global risk aversion hits all currencies. Tests diversified hedging. | Correlation in crises |
-| **Liquidity Crunch** | 💧 All subs −30–50% | Major customer delays payments across the board. Cash deficits everywhere. | Liquidity planning |
+| Button | Shock | What it teaches |
+|---|---|---|
+| EM Crisis | BRL −20% | Emerging-market currency risk |
+| EUR Weak | EUR −8% | Concentration in the largest foreign balance |
+| Risk-Off | BRL −15%, EUR −3%, GBP −2% | Correlated moves in a crisis |
+| Liquidity | Each subsidiary loses 30–50% of its target cash | Funding shortfalls and overdraft cost |
 
----
+## Suggested learning path
 
-## &#128187; Interface Guide
+1. Run 20–30 days with every hedge at 50% and read the P&L waterfall.
+2. Set every hedge to 0% and trigger **EM Crisis**; watch translation losses in Brazil.
+3. Set EUR to 100% and the rest to 0%, then trigger **EUR Weak**: the hedge offsets the EUR translation loss.
+4. Compare sweep thresholds of 5% and 50% and how often overdrafts appear.
+5. Trigger **Liquidity** and see how the pool funds the shortfalls.
 
-```
-┌────────────────────────────────────────────────────────────────────┐
-│ 🌐 Global Treasury · FX Hedging & Cash Sweep Sim      [Theory][▶] │
-├────────────────────────────────────────────────────────────────────┤
-│ EUR/USD 1.0800 | GBP/USD 1.2700 | USD/JPY 150.0 | BRL 5.26 ...   │
-├────────────────────────────────────────────────────────────────────┤
-│ [Stats: Subs 5 | Hedges 0 | Sweeps 0 | ODs 0 | P&L +$0 | ...]    │
-├────────────────────────────────────────────────────────────────────┤
-│ [P&L Waterfall: FX Translation | Hedge | Overdraft | Interest]    │
-├────────────────────────────────────────────────────────────────────┤
-│ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐          │
-│ │🇪🇺 EU  │ │🇬🇧 UK  │ │🇯🇵 JP  │ │🇧🇷 BR  │ │🇺🇸 US  │          │
-│ │Cash..  │ │Cash..  │ │Cash..  │ │Cash..  │ │Cash..  │          │
-│ │Hedge:◉─│ │Hedge:─◉│ │Hedge:─│ │Hedge:─│ │(base)  │          │
-│ └────────┘ └────────┘ └────────┘ └────────┘ └────────┘          │
-├────────────────────────────────────────────────────────────────────┤
-│ [Chart: Consolidated Cash + FX Rates]                             │
-├────────────────────────────────────────────────────────────────────┤
-│ [Controls: Vol | Sweep | Rate | Speed | OD]         [Scenarios]  │
-├────────────────────────────────────────────────────────────────────┤
-│ [Active Hedges Table]                    [Treasury Activity Log] │
-└────────────────────────────────────────────────────────────────────┘
-```
+## Project structure
 
----
-
-## &#128679; Project Structure
-
-```
+```text
 treasury-manager-sim/
-├── index.html      # Complete simulator (single-file)
-├── README.md       # This file
-└── LICENSE         # MIT License
+├── index.html                         The complete simulator
+├── scripts/capture_screenshots.py     Rebuilds the README screenshots (headless Chromium)
+├── .github/workflows/screenshots.yml  Runs that script on GitHub Actions
+├── docs/screenshots/
+└── LICENSE
 ```
 
-### Technologies
+## License
 
-| Technology | Purpose |
-|------------|---------|
-| **HTML5** | Structure |
-| **CSS3** | Dark-themed enterprise dashboard |
-| **Vanilla JS** | All simulation logic, FX math, and UI |
-| **Chart.js 4.x** | Real-time chart (CDN) |
-
----
-
-## &#128220; License
-
-MIT — see [`LICENSE`](LICENSE).
-
----
-
-## &#9888; Disclaimer
-
-Educational tool only. All market data is synthetically generated. Nothing herein constitutes financial advice.
-
----
-
-<div align="center">
-  <br>
-  <p><sub><em>"The best hedge is the one you have in place before the currency moves."</em></sub></p>
-  <br>
-</div>
+MIT — see [LICENSE](LICENSE). Educational tool; all market data is synthetic and nothing here is financial advice.
