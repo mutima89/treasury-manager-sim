@@ -55,8 +55,8 @@ Built as a **single HTML file** — open in any browser and press Start.
 | **5 Multinational Subsidiaries** | US (HQ), EU, UK, Japan, Brazil — each with local currency, cash balance, and daily cash flows |
 | **4 Currency Pairs** | EUR/USD, GBP/USD, USD/JPY, USD/BRL — each with configurable volatility |
 | **GBM FX Rate Process** | Exchange rates follow Geometric Brownian Motion with realistic volatility |
-| **Forward Contracts** | Hedge FX exposure by locking in rates for future cash flows |
-| **Automatic Cash Sweeps** | Excess cash is swept to a central pool; deficits are covered from it |
+| **Forward Contracts** | Each day, one-day forwards sell the hedged share of every foreign cash balance at the forward rate |
+| **Automatic Cash Sweeps** | Excess cash is swept to a USD central pool at the spot rate; deficits are covered from it |
 | **Daily Cash Flows** | Each subsidiary generates random daily net cash flows with seasonal patterns |
 | **Overdraft Detection** | Negative cash balances trigger expensive overdraft fees |
 
@@ -167,8 +167,8 @@ open index.html
 
 | Exposure Type | Definition | In This Simulator |
 |---------------|-----------|-------------------|
-| **Transaction** | P&L impact of converting foreign cash flows at spot rates | Daily cash flows × (spot rate − hedge rate) |
-| **Translation** | Change in USD value of foreign cash balances due to rate moves | Cash balance × (current rate − previous rate) |
+| **Transaction** | P&L impact of converting foreign cash flows at spot rates | Flows are converted at the day's spot rate when swept |
+| **Translation** | Change in USD value of foreign cash balances due to rate moves | Cash balance × (current rate − previous rate); this is what the forwards hedge |
 
 ### How Forward Hedging Works
 
@@ -182,6 +182,12 @@ Hedge P&L at Settlement = Qty × (Locked Rate − Spot Rate)
 
 - If the spot rate moves **against** you (currency weakens), the forward pays you → offsets the FX loss
 - If the spot rate moves **in your favor** (currency strengthens), you pay the forward → caps the FX gain
+
+### How the model keeps its books
+
+- Rates are stored as USD per unit of local currency; every transfer between a subsidiary and the USD pool converts at spot.
+- Forward rate = spot × e^((r_USD − r_local) × T), with approximate local rates (EUR 3%, GBP 4.5%, JPY 0.5%, BRL 11%). The forward points are inside the hedge settlement; the **Hedge Cost** card shows them separately for information only.
+- Hedge settlements, interest and overdraft fees all flow through cash, so at every step: change in total USD cash = operating cash flows + Total Treasury P&L.
 
 ### P&L Decomposition
 
